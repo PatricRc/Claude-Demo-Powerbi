@@ -1,0 +1,118 @@
+{
+  "name": "AndinaTech Nomina",
+  "dataColors": [
+    "#2F5D8A",
+    "#6E93B8",
+    "#9A6B1F",
+    "#1F2A37",
+    "#6B7280",
+    "#2A7349",
+    "#B23A3A"
+  ],
+  "foreground": "#1F2A37",
+  "background": "#FFFFFF",
+  "secondaryBackground": "#F4F5F7",
+  "tableAccent": "#2F5D8A",
+  "good": "#2A7349",
+  "bad": "#B23A3A",
+  "neutral": "#6B7280",
+  "maximum": "#2F5D8A",
+  "minimum": "#EEF3F8",
+  "textClasses": {
+    "title": {
+      "fontFace": "Segoe UI Semibold",
+      "color": "#1F2A37",
+      "fontSize": 12
+    },
+    "label": {
+      "fontFace": "Segoe UI",
+      "color": "#4B5563",
+      "fontSize": 9
+    },
+    "callout": {
+      "fontFace": "Segoe UI Light",
+      "color": "#1F2A37",
+      "fontSize": 28
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "title": [
+          {
+            "show": false
+          }
+        ],
+        "border": [
+          {
+            "show": false
+          }
+        ],
+        "background": [
+          {
+            "show": false
+          }
+        ],
+        "dropShadow": [
+          {
+            "show": false
+          }
+        ],
+        "padding": [
+          {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0
+          }
+        ],
+        "valueAxis": [
+          {
+            "fontSize": 9,
+            "gridlineShow": true,
+            "gridlineColor": {
+              "solid": {
+                "color": "#E0E0E0"
+              }
+            },
+            "showAxisTitle": false
+          }
+        ],
+        "categoryAxis": [
+          {
+            "fontSize": 9,
+            "showAxisTitle": false
+          }
+        ]
+      }
+    },
+    "page": {
+      "*": {
+        "background": [
+          {
+            "color": {
+              "solid": {
+                "color": "#F4F5F7"
+              }
+            },
+            "transparency": 0
+          }
+        ]
+      }
+    },
+    "slicer": {
+      "*": {
+        "items": [
+          {
+            "fontColor": {
+              "solid": {
+                "color": "#1F2A37"
+              }
+            },
+            "textSize": 10
+          }
+        ]
+      }
+    }
+  }
+}

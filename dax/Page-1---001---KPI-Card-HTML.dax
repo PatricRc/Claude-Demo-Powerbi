@@ -1,0 +1,55 @@
+-- Measure: Page 1 - 001 - KPI Card HTML
+-- Visual: HTML Content Secure (certified), 470x190 at 272,140. Prototype: html-components/Page-1---001---KPI-Card.html
+-- Secure rules: inline styles only, no <script>, no on* handlers, no remote URLs, no web fonts.
+-- Pattern (Gus Bavia): data VARs at the top, token VARs from dax/_tokens.dax, HTML at the bottom.
+
+-- 1) Data
+VAR _Costo = [Costo Total Nómina]
+VAR _Var = [Variación vs Presupuesto]
+VAR _Grat = [Gratificación]
+-- Department with the largest overrun in the current filter context
+VAR _Deps = ADDCOLUMNS ( VALUES ( Departamentos[departamento] ), "@Var", [Variación vs Presupuesto] )
+VAR _TopDep = MAXX ( TOPN ( 1, _Deps, [@Var], DESC ), Departamentos[departamento] )
+VAR _TopVar = MAXX ( TOPN ( 1, _Deps, [@Var], DESC ), [@Var] )
+VAR _TopOTPct = CALCULATE ( [% Horas Extra sobre Nómina], Departamentos[departamento] = _TopDep )
+
+-- 2) Tokens (keep identical to dax/_tokens.dax)
+VAR _Ink = "#1F2A37"  VAR _Sub = "#4B5563"  VAR _Divider = "#E6E8EC"  VAR _Card = "#FFFFFF"
+VAR _Good = "#2A7349" VAR _GoodBg = "#E8F3EC" VAR _Bad = "#B23A3A" VAR _BadBg = "#F8E9E9" VAR _Gold = "#9A6B1F"
+VAR _FontDisplay = "Georgia, 'Times New Roman', serif"
+VAR _FontUi = "'Segoe UI', system-ui, -apple-system, sans-serif"
+
+-- 3) Formatting helpers
+VAR _Soles = "S/ " & FORMAT ( _Costo / 1E6, "0.00" ) & " M"
+VAR _IsOver = _Var > 0
+VAR _VarTxt =
+    IF ( ISBLANK ( _Var ), "—",
+        IF ( _IsOver, "+", "−" ) & "S/ " & FORMAT ( ABS ( _Var ) / 1E3, "#,0.0" ) & " mil vs presupuesto" )
+VAR _DeltaFg = IF ( _IsOver, _Bad, _Good )
+VAR _DeltaBg = IF ( _IsOver, _BadBg, _GoodBg )
+VAR _Arrow = IF ( _IsOver, "22 7 13.5 15.5 8.5 10.5 2 17", "22 17 13.5 8.5 8.5 13.5 2 7" )
+VAR _Head = IF ( _IsOver, "16 7 22 7 22 13", "16 17 22 17 22 11" )
+
+-- 4) Clue: gratificación when it drives the month, otherwise the department with the largest overrun
+VAR _Clue =
+    SWITCH ( TRUE (),
+        _Grat > 0 && DIVIDE ( _Grat, _Costo ) > 0.2,
+            "<strong style='color:" & _Gold & "'>Gratificación</strong> S/ " & FORMAT ( _Grat / 1E6, "0.00" )
+                & " M explica el salto del mes; no son contrataciones.",
+        _TopVar > 0,
+            "<strong style='color:" & _Ink & "'>" & _TopDep & "</strong> gasta S/ " & FORMAT ( _TopVar / 1E3, "#,0.0" )
+                & " mil más de lo presupuestado; sus horas extra son " & FORMAT ( _TopOTPct, "0.0%" ) & " de su costo.",
+        "Ningún departamento supera su presupuesto en este filtro."
+    )
+
+RETURN
+IF ( ISBLANK ( _Costo ), BLANK (),
+"<div style='box-sizing:border-box;height:190px;background:" & _Card & ";border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:8px;font-family:" & _FontUi & "'>"
+    & "<div style='font-size:10px;font-weight:600;letter-spacing:2px;color:" & _Sub & "'>COSTO TOTAL NÓMINA · SOLES</div>"
+    & "<div style='font-family:" & _FontDisplay & ";font-size:40px;line-height:1;color:" & _Ink & "'>" & _Soles & "</div>"
+    & "<div style='display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;width:fit-content;color:" & _DeltaFg & ";background:" & _DeltaBg & "'>"
+        & "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='" & _DeltaFg & "' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='" & _Arrow & "'/><polyline points='" & _Head & "'/></svg>"
+        & _VarTxt & "</div>"
+    & "<p style='margin:auto 0 0 0;padding-top:8px;border-top:1px solid " & _Divider & ";font-size:11px;line-height:1.5;color:" & _Sub & "'>" & _Clue & "</p>"
+& "</div>"
+)

@@ -1,0 +1,28 @@
+-- Base measures for "Nómina AndinaTech" (Import model).
+-- Tables: Nomina (fact), Presupuesto (budget fact), Empleados (dim), Departamentos (dim), Calendario (date dim).
+-- Relationships: Departamentos 1:* Empleados 1:* Nomina; Departamentos 1:* Presupuesto; Calendario 1:* both facts on fecha_periodo.
+-- Host them in _Measures, display folder per page. Every measure carries a formatString.
+-- Component measures (HTML, alt text) read these through VAR; they never repeat the logic.
+
+-- Folder: 00 Base
+Costo Total Nómina = SUM ( Nomina[costo_total_nomina] )                       -- "S/ "#,0.00
+Presupuesto Nómina = SUM ( Presupuesto[presupuesto_nomina] )                  -- "S/ "#,0.00
+Variación vs Presupuesto = [Costo Total Nómina] - [Presupuesto Nómina]        -- "S/ "#,0.00;-"S/ "#,0.00
+Variación % = DIVIDE ( [Variación vs Presupuesto], [Presupuesto Nómina] )     -- 0.0%
+
+-- Folder: 01 Personas
+Headcount = DISTINCTCOUNT ( Nomina[id_empleado] )                             -- #,0
+-- Headcount Planificado: budget grain is department-month. Summing across months overcounts,
+-- so take the last month in context.
+Headcount Planificado =
+    VAR _UltimoMes = MAX ( Presupuesto[fecha_periodo] )
+    RETURN CALCULATE ( SUM ( Presupuesto[headcount_planificado] ), Presupuesto[fecha_periodo] = _UltimoMes )   -- #,0
+Costo por Empleado = DIVIDE ( [Costo Total Nómina], [Headcount] )             -- "S/ "#,0
+
+-- Folder: 02 Componentes del costo
+Horas Extra = SUM ( Nomina[horas_extra] )                                     -- #,0.0
+Pago Horas Extra = SUM ( Nomina[pago_horas_extra] )                           -- "S/ "#,0.00
+% Horas Extra sobre Nómina = DIVIDE ( [Pago Horas Extra], [Costo Total Nómina] )   -- 0.0%
+Bono Desempeño = SUM ( Nomina[bono_desempeno] )                               -- "S/ "#,0.00
+Gratificación = SUM ( Nomina[gratificacion] )                                 -- "S/ "#,0.00
+Monto Liquidación = SUM ( Nomina[monto_liquidacion] )                         -- "S/ "#,0.00

@@ -1,0 +1,15 @@
+-- PASS/FAIL probes. Run in the DAX query view or through the Power BI MCP, no filters.
+-- Expected values come from checks/anchors.py (Python over the raw CSVs).
+EVALUATE
+VAR _Costo = [Costo Total Nómina]
+VAR _Ppto = [Presupuesto Nómina]
+VAR _Var = [Variación vs Presupuesto]
+VAR _Ops = CALCULATE ( [Variación vs Presupuesto], Departamentos[departamento] = "Operaciones" )
+RETURN
+    {
+        ( "Costo Total Nómina", _Costo, 23098225.79, IF ( ABS ( _Costo - 23098225.79 ) < 0.01, "PASS", "FAIL" ) ),
+        ( "Presupuesto Nómina", _Ppto, 23105910.00, IF ( ABS ( _Ppto - 23105910.00 ) < 0.01, "PASS", "FAIL" ) ),
+        ( "Variación vs Presupuesto", _Var, -7684.21, IF ( ABS ( _Var - ( -7684.21 ) ) < 0.01, "PASS", "FAIL" ) ),
+        ( "Sobrecosto Operaciones", _Ops, 68460.04, IF ( ABS ( _Ops - 68460.04 ) < 0.01, "PASS", "FAIL" ) )
+    }
+-- Departamentos must filter both facts: Departamentos 1:* Empleados 1:* Nomina, and Departamentos 1:* Presupuesto.

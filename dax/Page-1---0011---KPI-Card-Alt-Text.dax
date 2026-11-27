@@ -1,0 +1,8 @@
+-- Measure: Page 1 - 001.1 - KPI Card Alt Text
+-- Bind to the alt text of the HTML Content visual. Screen readers cannot read the HTML string.
+VAR _Costo = [Costo Total Nómina]
+VAR _Var = [Variación vs Presupuesto]
+RETURN
+"Costo total de nómina S/ " & FORMAT ( _Costo, "#,0" )
+    & ". " & IF ( _Var > 0, "Sobrecosto de S/ ", "Ahorro de S/ " ) & FORMAT ( ABS ( _Var ), "#,0" )
+    & " frente al presupuesto."
