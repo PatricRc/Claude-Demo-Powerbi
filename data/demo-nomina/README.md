@@ -13,10 +13,10 @@ Moneda PEN. Períodos 2025-11 a 2026-10.
 
 Los 3 CSV ya están cargados en el Lakehouse de Fabric (`Files/demo/nomina/`). El modelo semántico es **Import**.
 
-## Falta en esta carpeta
-
 - `transcripcion_reunion_nomina.md`: la transcripción de la reunión con el comité. Es la entrada del paso 1 (brief).
-  Cópiala aquí antes de la demo.
+
+## Se genera en vivo
+
 - `brief.md`: lo genera Claude Code en vivo. El respaldo está en `design/checkpoints/brief.checkpoint.md`.
 
 ## Verificar
