@@ -1,0 +1,112 @@
+-- Time-intelligence measures for "Nómina AndinaTech". Load after _base-measures.dax and _calendario.dax.
+-- Calendario is marked as the date table; both facts are dated on the last day of each month.
+-- Data covers 2025-11 to 2026-10, so year-over-year measures stay blank until there is a prior year.
+-- "Último mes con datos" anchors rolling windows, so a total row does not roll from 2026-12-31 (no data).
+-- Expected values: python3 checks/questions.py (section "Time intelligence").
+-- Folder: 03 Tiempo
+
+
+-- Anchor -----------------------------------------------------------------
+Último Mes con Datos =
+    MIN (
+        MAX ( Calendario[Date] ),
+        CALCULATE ( MAX ( Nomina[fecha_periodo] ), REMOVEFILTERS ( Calendario ) )
+    )                                                                          -- mmm yyyy
+
+
+-- Year and quarter to date ----------------------------------------------
+-- Expected at 2026-10: costo 18,556,196.13 · presupuesto 18,537,750.00
+Costo YTD = TOTALYTD ( [Costo Total Nómina], Calendario[Date] )                -- "S/ "#,0.00
+Presupuesto YTD = TOTALYTD ( [Presupuesto Nómina], Calendario[Date] )          -- "S/ "#,0.00
+Variación YTD = [Costo YTD] - [Presupuesto YTD]                                -- "S/ "#,0.00;-"S/ "#,0.00
+Variación YTD % = DIVIDE ( [Variación YTD], [Presupuesto YTD] )                -- 0.0%
+
+-- Expected Q3 2026 (jul-sep): 6,921,196.57
+Costo QTD = TOTALQTD ( [Costo Total Nómina], Calendario[Date] )                -- "S/ "#,0.00
+Presupuesto QTD = TOTALQTD ( [Presupuesto Nómina], Calendario[Date] )          -- "S/ "#,0.00
+
+
+-- Month over month --------------------------------------------------------
+-- Expected jul 2026 vs jun 2026: +1,559,777.16
+Costo Mes Anterior =
+    CALCULATE ( [Costo Total Nómina], DATEADD ( Calendario[Date], -1, MONTH ) )     -- "S/ "#,0.00
+Variación MoM =
+    IF (
+        NOT ISBLANK ( [Costo Total Nómina] ) && NOT ISBLANK ( [Costo Mes Anterior] ),
+        [Costo Total Nómina] - [Costo Mes Anterior]
+    )                                                                          -- +"S/ "#,0.00;-"S/ "#,0.00
+Variación MoM % = DIVIDE ( [Variación MoM], [Costo Mes Anterior] )             -- +0.0%;-0.0%
+
+-- Same comparison without the July/December bonus, to show the underlying trend
+Costo sin Gratificación Mes Anterior =
+    CALCULATE ( [Costo sin Gratificación], DATEADD ( Calendario[Date], -1, MONTH ) )  -- "S/ "#,0.00
+Variación MoM sin Gratificación =
+    IF (
+        NOT ISBLANK ( [Costo sin Gratificación] ) && NOT ISBLANK ( [Costo sin Gratificación Mes Anterior] ),
+        [Costo sin Gratificación] - [Costo sin Gratificación Mes Anterior]
+    )                                                                          -- +"S/ "#,0.00;-"S/ "#,0.00
+
+Headcount Mes Anterior =
+    CALCULATE ( [Headcount], DATEADD ( Calendario[Date], -1, MONTH ) )         -- #,0
+Variación Headcount MoM =
+    IF ( NOT ISBLANK ( [Headcount Mes Anterior] ), [Headcount] - [Headcount Mes Anterior] )   -- +#,0;-#,0;0
+
+
+-- Year over year (blank until a prior year exists) -------------------------
+Costo Año Anterior =
+    CALCULATE ( [Costo Total Nómina], SAMEPERIODLASTYEAR ( Calendario[Date] ) )    -- "S/ "#,0.00
+Variación YoY =
+    IF (
+        NOT ISBLANK ( [Costo Total Nómina] ) && NOT ISBLANK ( [Costo Año Anterior] ),
+        [Costo Total Nómina] - [Costo Año Anterior]
+    )                                                                          -- +"S/ "#,0.00;-"S/ "#,0.00
+Variación YoY % = DIVIDE ( [Variación YoY], [Costo Año Anterior] )             -- +0.0%;-0.0%
+
+
+-- Rolling windows ----------------------------------------------------------
+-- Expected at 2026-10: 23,098,225.79 (the 12 months of data)
+Costo Últimos 12 Meses =
+    CALCULATE (
+        [Costo Total Nómina],
+        DATESINPERIOD ( Calendario[Date], [Último Mes con Datos], -12, MONTH )
+    )                                                                          -- "S/ "#,0.00
+Presupuesto Últimos 12 Meses =
+    CALCULATE (
+        [Presupuesto Nómina],
+        DATESINPERIOD ( Calendario[Date], [Último Mes con Datos], -12, MONTH )
+    )                                                                          -- "S/ "#,0.00
+
+-- Average of the last 3 months that have data. Expected at 2026-10: 1,813,387.40
+Costo Promedio Móvil 3M =
+    VAR _Ventana = DATESINPERIOD ( Calendario[Date], [Último Mes con Datos], -3, MONTH )
+    RETURN
+        -- The iteration runs inside CALCULATE so the window replaces the month filter in context
+        CALCULATE (
+            AVERAGEX (
+                FILTER ( VALUES ( Calendario[Fin de Mes] ), NOT ISBLANK ( [Costo Total Nómina] ) ),
+                [Costo Total Nómina]
+            ),
+            _Ventana
+        )                                                                      -- "S/ "#,0.00
+
+
+-- Running totals over all the data -----------------------------------------
+-- Variación Acumulada never turns positive: lowest at jul 2026 (−76,856.42), closes at −7,684.21.
+-- That is the "el consolidado lo esconde" story: Aug-Oct overruns eat most of the earlier savings.
+Costo Acumulado =
+    CALCULATE (
+        [Costo Total Nómina],
+        FILTER ( ALL ( Calendario[Date] ), Calendario[Date] <= MAX ( Calendario[Date] ) )
+    )                                                                          -- "S/ "#,0.00
+Presupuesto Acumulado =
+    CALCULATE (
+        [Presupuesto Nómina],
+        FILTER ( ALL ( Calendario[Date] ), Calendario[Date] <= MAX ( Calendario[Date] ) )
+    )                                                                          -- "S/ "#,0.00
+Variación Acumulada = [Costo Acumulado] - [Presupuesto Acumulado]              -- "S/ "#,0.00;-"S/ "#,0.00
+
+
+-- Semi-additive: headcount at the end of the period, not summed ------------
+Headcount Fin de Período =
+    VAR _Ultimo = CALCULATE ( MAX ( Nomina[fecha_periodo] ) )
+    RETURN CALCULATE ( [Headcount], Nomina[fecha_periodo] = _Ultimo )          -- #,0

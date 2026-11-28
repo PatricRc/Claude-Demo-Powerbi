@@ -1,0 +1,170 @@
+-- Measures that answer the committee's questions (design/checkpoints/brief.checkpoint.md, section A).
+-- They build on dax/_base-measures.dax; load that file first. Host them in _Measures.
+-- Expected values: python3 checks/questions.py. Probes: dax/_probes-preguntas.dax.
+-- Grain: Nomina = 1 row per employee-month (checked in checks/questions.py); Presupuesto = 1 row per department-month.
+-- Month iterators use Calendario[Fin de Mes]; department iterators use Departamentos[departamento].
+
+
+-- ============================================================
+-- Folder: 02 Componentes del costo (adds the components missing from the base file)
+-- costo_total_nomina = sueldo + horas extra + bono + gratificación + liquidación + aportes
+-- ============================================================
+Sueldo Base = SUM ( Nomina[sueldo_base] )                                      -- "S/ "#,0.00
+Aportes Empleador = SUM ( Nomina[aportes_empleador] )                          -- "S/ "#,0.00
+Presupuesto Horas Extra = SUM ( Presupuesto[presupuesto_horas_extra] )         -- "S/ "#,0.00
+Variación Horas Extra vs Presupuesto = [Pago Horas Extra] - [Presupuesto Horas Extra]   -- "S/ "#,0.00;-"S/ "#,0.00
+
+
+-- ============================================================
+-- Folder: P1 ¿Cerramos dentro del presupuesto?
+-- Expected (total): Variación −7,684.21 · 3 meses en sobrecosto · 1 departamento en sobrecosto
+-- ============================================================
+Estado Presupuesto =
+    VAR _Var = [Variación vs Presupuesto]
+    RETURN
+        SWITCH (
+            TRUE (),
+            ISBLANK ( _Var ), BLANK (),
+            _Var > 0, "Sobre el presupuesto",
+            "Dentro del presupuesto"
+        )
+
+-- Months in context where the company (or the filtered department) spent more than planned
+Meses en Sobrecosto =
+    COUNTROWS (
+        FILTER ( VALUES ( Calendario[Fin de Mes] ), [Variación vs Presupuesto] > 0 )
+    ) + 0                                                                      -- #,0
+
+-- Departments whose variance in context is above budget
+Departamentos en Sobrecosto =
+    COUNTROWS (
+        FILTER ( VALUES ( Departamentos[departamento] ), [Variación vs Presupuesto] > 0 )
+    ) + 0                                                                      -- #,0
+
+-- Only the overruns, department by month: what the net total hides (savings elsewhere offset it)
+-- Expected (total): 93,842.98
+Sobrecosto Bruto =
+    SUMX (
+        CROSSJOIN ( VALUES ( Departamentos[departamento] ), VALUES ( Calendario[Fin de Mes] ) ),
+        MAX ( 0, [Variación vs Presupuesto] )
+    )                                                                          -- "S/ "#,0.00
+
+
+-- ============================================================
+-- Folder: P2 ¿Qué departamento explica el sobrecosto y desde cuándo?
+-- Expected (total): Operaciones · +68,460.04 · desde jun 2026 (empresa: desde ago 2026)
+-- ============================================================
+Departamento Mayor Sobrecosto =
+    VAR _Deps =
+        ADDCOLUMNS ( VALUES ( Departamentos[departamento] ), "@Var", [Variación vs Presupuesto] )
+    VAR _Top = TOPN ( 1, FILTER ( _Deps, [@Var] > 0 ), [@Var], DESC )
+    RETURN MAXX ( _Top, Departamentos[departamento] )                         -- blank when no department is over budget
+
+Sobrecosto Mayor Departamento =
+    VAR _Deps =
+        ADDCOLUMNS ( VALUES ( Departamentos[departamento] ), "@Var", [Variación vs Presupuesto] )
+    RETURN MAX ( 0, MAXX ( _Deps, [@Var] ) )                                  -- "S/ "#,0.00
+
+-- Share of the gross overrun explained by the top department
+% Sobrecosto Mayor Departamento =
+    DIVIDE ( [Sobrecosto Mayor Departamento], [Sobrecosto Bruto] )             -- 0.0%
+
+-- First month in context with spending above budget (filter a department to get "desde cuándo")
+Primer Mes en Sobrecosto =
+    MINX (
+        FILTER ( VALUES ( Calendario[Fin de Mes] ), [Variación vs Presupuesto] > 0 ),
+        Calendario[Fin de Mes]
+    )                                                                          -- mmm yyyy
+
+-- Consecutive months above budget, counted back from the last month with data
+Meses Consecutivos en Sobrecosto =
+    VAR _Meses =
+        ADDCOLUMNS (
+            FILTER ( VALUES ( Calendario[Fin de Mes] ), NOT ISBLANK ( [Costo Total Nómina] ) ),
+            "@Sobre", [Variación vs Presupuesto] > 0
+        )
+    VAR _UltimoDentro = MAXX ( FILTER ( _Meses, NOT [@Sobre] ), Calendario[Fin de Mes] )
+    RETURN
+        COUNTROWS (
+            FILTER ( _Meses, [@Sobre] && ( ISBLANK ( _UltimoDentro ) || Calendario[Fin de Mes] > _UltimoDentro ) )
+        ) + 0                                                                  -- #,0
+
+
+-- ============================================================
+-- Folder: P3 ¿Más personas o más costo por persona?
+-- Variance = Efecto Volumen + Efecto Costo por Persona (exact; checked in checks/questions.py).
+-- Expected (total): 1,839 vs 1,832 personas-mes · Volumen +88,286.77 · Costo por persona −95,970.98
+-- ============================================================
+Personas-Mes Real = COUNTROWS ( Nomina )                                       -- #,0
+Personas-Mes Plan = SUM ( Presupuesto[headcount_planificado] )                 -- #,0
+Variación Personas-Mes = [Personas-Mes Real] - [Personas-Mes Plan]             -- +#,0;-#,0;0
+
+Headcount Promedio Mensual =
+    AVERAGEX (
+        FILTER ( VALUES ( Calendario[Fin de Mes] ), NOT ISBLANK ( [Headcount] ) ),
+        [Headcount]
+    )                                                                          -- #,0.0
+
+Costo por Persona-Mes Real = DIVIDE ( [Costo Total Nómina], [Personas-Mes Real] )    -- "S/ "#,0.00
+Costo por Persona-Mes Plan = DIVIDE ( [Presupuesto Nómina], [Personas-Mes Plan] )    -- "S/ "#,0.00
+
+-- Part of the variance caused by having more (or fewer) people than planned
+Efecto Volumen =
+    [Variación Personas-Mes] * [Costo por Persona-Mes Plan]                    -- "S/ "#,0.00;-"S/ "#,0.00
+
+-- Part of the variance caused by each person costing more (or less) than planned
+Efecto Costo por Persona =
+    ( [Costo por Persona-Mes Real] - [Costo por Persona-Mes Plan] ) * [Personas-Mes Real]   -- "S/ "#,0.00;-"S/ "#,0.00
+
+Causa Principal de la Variación =
+    VAR _Vol = [Efecto Volumen]
+    VAR _Pre = [Efecto Costo por Persona]
+    RETURN
+        IF (
+            ISBLANK ( _Vol ) && ISBLANK ( _Pre ), BLANK (),
+            IF ( ABS ( _Vol ) >= ABS ( _Pre ), "Más (o menos) personas", "Más (o menos) costo por persona" )
+        )
+
+
+-- ============================================================
+-- Folder: P4 ¿Por qué la nómina se dispara en julio y diciembre?
+-- Expected: jul 2026 costo 3,297,239.68, gratificación 1,396,794.00, headcount 156 (igual que junio)
+--           dic 2025 costo 2,981,869.91, gratificación 1,272,050.00
+-- ============================================================
+% Gratificación sobre Nómina = DIVIDE ( [Gratificación], [Costo Total Nómina] )      -- 0.0%
+Costo sin Gratificación = [Costo Total Nómina] - [Gratificación]               -- "S/ "#,0.00
+
+-- Hires and exits: Empleados has no relationship to Calendario, so the dates go through TREATAS.
+-- Only dates inside the payroll window (2025-11-01 to 2026-10-31) count: Calendario starts in Jan 2025,
+-- and 11 hires from Jan-Oct 2025 would otherwise inflate the total.
+Altas =
+    VAR _Ini = EOMONTH ( CALCULATE ( MIN ( Nomina[fecha_periodo] ), REMOVEFILTERS ( Calendario ) ), -1 ) + 1
+    VAR _Fin = CALCULATE ( MAX ( Nomina[fecha_periodo] ), REMOVEFILTERS ( Calendario ) )
+    VAR _Fechas = FILTER ( VALUES ( Calendario[Date] ), Calendario[Date] >= _Ini && Calendario[Date] <= _Fin )
+    RETURN
+        CALCULATE ( COUNTROWS ( Empleados ), TREATAS ( _Fechas, Empleados[fecha_ingreso] ) ) + 0   -- #,0
+
+Ceses =
+    VAR _Ini = EOMONTH ( CALCULATE ( MIN ( Nomina[fecha_periodo] ), REMOVEFILTERS ( Calendario ) ), -1 ) + 1
+    VAR _Fin = CALCULATE ( MAX ( Nomina[fecha_periodo] ), REMOVEFILTERS ( Calendario ) )
+    VAR _Fechas = FILTER ( VALUES ( Calendario[Date] ), Calendario[Date] >= _Ini && Calendario[Date] <= _Fin )
+    RETURN
+        CALCULATE ( COUNTROWS ( Empleados ), TREATAS ( _Fechas, Empleados[fecha_cese] ) ) + 0      -- #,0
+
+Altas Netas = [Altas] - [Ceses]                                                -- +#,0;-#,0;0
+
+
+-- ============================================================
+-- Folder: P5 ¿Cuánto costaron las liquidaciones?
+-- Expected (total): 52,614.80 · 2 ceses · 26,307.40 por cese
+-- ============================================================
+Liquidación Promedio por Cese = DIVIDE ( [Monto Liquidación], [Ceses] )        -- "S/ "#,0.00
+% Liquidación sobre Nómina = DIVIDE ( [Monto Liquidación], [Costo Total Nómina] )     -- 0.00%
+
+
+-- ============================================================
+-- P6 and P7 have no measure on purpose.
+-- P6 (rotación voluntaria vs involuntaria, motivo de salida): the CSVs only have fecha_cese and estado.
+-- P7 (costo vs evaluación de desempeño trimestral): bono_desempeno is an amount paid, not a rating.
+-- Say so on the report; do not build a proxy.
+-- ============================================================

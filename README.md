@@ -11,14 +11,14 @@ La estructura sigue a [*The World of Peaches*](https://github.com/gusbavia/the-w
 | Carpeta | Qué contiene | Paso |
 |---|---|---|
 | `data/demo-nomina/` | Los 3 CSV de AndinaTech (ficticios) y, en vivo, la transcripción y el `brief.md` | 1–2 |
-| `checks/` | `anchors.py`: cifras verificadas en Python (PASS/FAIL) | 2 |
+| `checks/` | `anchors.py`: cifras verificadas en Python (PASS/FAIL); `questions.py`: respuesta esperada a cada pregunta del brief | 2, 6 |
 | `design/DESIGN.md` | Contrato de diseño: dirección, tokens, tipografía, layout, reglas de componentes | 3 |
 | `design/tokens/` | `tokens.json` (fuente única) y `build_tokens.py`, que genera `tokens.css`, el tema y los tokens DAX | 3 |
 | `design/theme/` | Tema de Power BI generado desde los tokens | 3 |
 | `design/wireframe/` | Wireframe 1280×720 con el rectángulo de cada visual | 4 |
 | `design/checkpoints/` | `brief.checkpoint.md`, respaldo si el brief en vivo falla | 1 |
 | `html-components/` | Prototipos HTML aislados al tamaño del contenedor, CSS en `html-components/css/` | 5 |
-| `dax/` | Medidas base, probes PASS/FAIL, tokens DAX y una medida por componente + su alt text | 5–6 |
+| `dax/` | Calendario, medidas base, medidas por pregunta del brief, time intelligence, probes PASS/FAIL, tokens DAX y una medida por componente + su alt text | 5–6 |
 | `src/` | Modelo (TMDL) y reporte (PBIR) cuando se crean en Fabric | 6–7 |
 | `docs/screenshots/` | Capturas de QA | 8 |
 
@@ -37,6 +37,7 @@ La estructura sigue a [*The World of Peaches*](https://github.com/gusbavia/the-w
 
 ```bash
 python3 checks/anchors.py              # cifras verificadas
+python3 checks/questions.py            # respuesta esperada a cada pregunta (lo que validan los probes DAX)
 python3 design/tokens/build_tokens.py  # regenera CSS, tema y tokens DAX + revisa contraste
 python3 -m http.server 8765            # abre html-components/ en el navegador
 ```

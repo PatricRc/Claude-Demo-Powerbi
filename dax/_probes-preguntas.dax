@@ -1,0 +1,83 @@
+-- PASS/FAIL probes for _question-measures.dax and _time-intelligence.dax.
+-- Run in the DAX query view or through the Power BI MCP. Expected values: python3 checks/questions.py.
+-- Each EVALUATE is independent; run them one at a time if your tool takes one query per call.
+
+-- 1) Totals, no filters
+EVALUATE
+VAR _T = 0.01
+RETURN
+    {
+        ( "Meses en Sobrecosto", [Meses en Sobrecosto], 3, IF ( [Meses en Sobrecosto] = 3, "PASS", "FAIL" ) ),
+        ( "Departamentos en Sobrecosto", [Departamentos en Sobrecosto], 1, IF ( [Departamentos en Sobrecosto] = 1, "PASS", "FAIL" ) ),
+        ( "Sobrecosto Bruto", [Sobrecosto Bruto], 93842.98, IF ( ABS ( [Sobrecosto Bruto] - 93842.98 ) < _T, "PASS", "FAIL" ) ),
+        ( "Departamento Mayor Sobrecosto es Operaciones", IF ( [Departamento Mayor Sobrecosto] = "Operaciones", 1, 0 ), 1, IF ( [Departamento Mayor Sobrecosto] = "Operaciones", "PASS", "FAIL" ) ),
+        ( "Sobrecosto Mayor Departamento", [Sobrecosto Mayor Departamento], 68460.04, IF ( ABS ( [Sobrecosto Mayor Departamento] - 68460.04 ) < _T, "PASS", "FAIL" ) ),
+        ( "Personas-Mes Real", [Personas-Mes Real], 1839, IF ( [Personas-Mes Real] = 1839, "PASS", "FAIL" ) ),
+        ( "Personas-Mes Plan", [Personas-Mes Plan], 1832, IF ( [Personas-Mes Plan] = 1832, "PASS", "FAIL" ) ),
+        ( "Efecto Volumen", [Efecto Volumen], 88286.77, IF ( ABS ( [Efecto Volumen] - 88286.77 ) < _T, "PASS", "FAIL" ) ),
+        ( "Efecto Costo por Persona", [Efecto Costo por Persona], -95970.98, IF ( ABS ( [Efecto Costo por Persona] - ( -95970.98 ) ) < _T, "PASS", "FAIL" ) ),
+        ( "Monto Liquidación", [Monto Liquidación], 52614.80, IF ( ABS ( [Monto Liquidación] - 52614.80 ) < _T, "PASS", "FAIL" ) ),
+        ( "Ceses", [Ceses], 2, IF ( [Ceses] = 2, "PASS", "FAIL" ) ),
+        ( "Altas", [Altas], 12, IF ( [Altas] = 12, "PASS", "FAIL" ) ),
+        ( "Costo Últimos 12 Meses", [Costo Últimos 12 Meses], 23098225.79, IF ( ABS ( [Costo Últimos 12 Meses] - 23098225.79 ) < _T, "PASS", "FAIL" ) ),
+        ( "Variación Acumulada", [Variación Acumulada], -7684.21, IF ( ABS ( [Variación Acumulada] - ( -7684.21 ) ) < _T, "PASS", "FAIL" ) )
+    }
+
+-- 2) Operaciones: desde cuándo
+EVALUATE
+CALCULATETABLE (
+    ROW (
+        "Primer Mes en Sobrecosto", [Primer Mes en Sobrecosto],
+        "Esperado", DATE ( 2026, 6, 30 ),
+        "Estado", IF ( [Primer Mes en Sobrecosto] = DATE ( 2026, 6, 30 ), "PASS", "FAIL" )
+    ),
+    Departamentos[departamento] = "Operaciones"
+)
+
+-- 3) Julio 2026: gratificación, no contrataciones
+EVALUATE
+CALCULATETABLE (
+    ROW (
+        "Costo", [Costo Total Nómina],
+        "Gratificación", [Gratificación],
+        "Variación MoM", [Variación MoM],
+        "Variación Headcount MoM", [Variación Headcount MoM],
+        "Estado",
+            IF (
+                ABS ( [Costo Total Nómina] - 3297239.68 ) < 0.01
+                    && ABS ( [Gratificación] - 1396794.00 ) < 0.01
+                    && ABS ( [Variación MoM] - 1559777.16 ) < 0.01
+                    && [Variación Headcount MoM] = 0,
+                "PASS", "FAIL"
+            )
+    ),
+    Calendario[Año Mes] = "2026-07"
+)
+
+-- 4) Time intelligence at October 2026
+EVALUATE
+CALCULATETABLE (
+    ROW (
+        "Costo YTD", [Costo YTD],
+        "Presupuesto YTD", [Presupuesto YTD],
+        "Promedio Móvil 3M", [Costo Promedio Móvil 3M],
+        "Estado",
+            IF (
+                ABS ( [Costo YTD] - 18556196.13 ) < 0.01
+                    && ABS ( [Presupuesto YTD] - 18537750.00 ) < 0.01
+                    && ABS ( [Costo Promedio Móvil 3M] - 1813387.40 ) < 0.01,
+                "PASS", "FAIL"
+            )
+    ),
+    Calendario[Año Mes] = "2026-10"
+)
+
+-- 5) Q3 2026
+EVALUATE
+CALCULATETABLE (
+    ROW (
+        "Costo QTD", [Costo QTD],
+        "Estado", IF ( ABS ( [Costo QTD] - 6921196.57 ) < 0.01, "PASS", "FAIL" )
+    ),
+    Calendario[Año Mes] = "2026-09"
+)

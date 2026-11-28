@@ -1,0 +1,21 @@
+-- Calendario: calculated date table for "Nómina AndinaTech".
+-- Mark it as the date table on [Date]. Turn off auto date/time.
+-- Full calendar years (2025-2026) so the time-intelligence functions work; data runs 2025-11 to 2026-10.
+-- Relationships: Calendario[Date] 1:* Nomina[fecha_periodo] and 1:* Presupuesto[fecha_periodo]
+-- (both facts are dated on the last day of the month).
+-- No relationship to Empleados: hires and exits are counted with TREATAS (see _question-measures.dax).
+-- Rolling and running-total measures filter Calendario[Date]; because the table is marked as a date table,
+-- that filter also clears the other Calendario columns (Año Mes, Fin de Mes...). Do not skip "mark as date table".
+
+Calendario =
+ADDCOLUMNS (
+    CALENDAR ( DATE ( 2025, 1, 1 ), DATE ( 2026, 12, 31 ) ),
+    "Año", YEAR ( [Date] ),
+    "Trimestre", "T" & QUARTER ( [Date] ),
+    "Año Trimestre", YEAR ( [Date] ) & " T" & QUARTER ( [Date] ),
+    "Mes Número", MONTH ( [Date] ),
+    "Mes", FORMAT ( [Date], "mmm" ),                         -- sort by Mes Número
+    "Año Mes", FORMAT ( [Date], "yyyy-mm" ),
+    "Fin de Mes", EOMONTH ( [Date], 0 ),                     -- month key used by the iterators
+    "Mes Año", FORMAT ( [Date], "mmm yyyy" )                 -- sort by Fin de Mes
+)
